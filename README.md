@@ -8,7 +8,7 @@ Browse the wallpaper library, preview images in the terminal, apply one with
 ## Install
 
 ```sh
-go install github.com/jdcasdev/walltui@latest   # -> $GOBIN/walltui
+go install github.com/jdcasdev/walltui/cmd/walltui@latest   # -> $GOBIN/walltui
 ```
 
 Or from a clone:
