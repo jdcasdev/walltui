@@ -1,5 +1,5 @@
-// Package cli runs walltui: the picker TUI, plus --version and --help. There
-// are no subcommands, so the stdlib flag package is enough.
+// Package cli runs walltui: the picker TUI, a headless apply, plus --version
+// and --help.
 package cli
 
 import (
@@ -10,10 +10,16 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jdcasdev/walltui/internal/apply"
 	"github.com/jdcasdev/walltui/internal/config"
 	"github.com/jdcasdev/walltui/internal/errs"
 	"github.com/jdcasdev/walltui/internal/ui"
 )
+
+var applyWallpaper = func(cfg config.Config, path string) (string, error) {
+	entry, err := apply.Run(cfg, path, apply.Options{})
+	return entry.Abs, err
+}
 
 // Execute runs the CLI and returns the first error.
 func Execute(version string) error {
@@ -30,10 +36,17 @@ func Execute(version string) error {
 		fmt.Println("walltui", version)
 		return nil
 	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("%w: unexpected argument %q", errs.ErrUsage, fs.Arg(0))
+	switch {
+	case fs.NArg() == 0:
+		return runPicker()
+	case fs.Arg(0) == "apply":
+		if fs.NArg() > 2 {
+			return fmt.Errorf("%w: apply takes at most one path", errs.ErrUsage)
+		}
+		return runApply(fs.Arg(1))
+	default:
+		return fmt.Errorf("%w: unknown command %q", errs.ErrUsage, fs.Arg(0))
 	}
-	return runPicker()
 }
 
 func runPicker() error {
@@ -43,5 +56,16 @@ func runPicker() error {
 		}
 		return fmt.Errorf("%w: running the picker: %v", errs.ErrIntegration, err)
 	}
+	return nil
+}
+
+// runApply applies a wallpaper without the TUI: the given path, or the stored
+// one.
+func runApply(path string) error {
+	applied, err := applyWallpaper(config.Load(), path)
+	if err != nil {
+		return err
+	}
+	fmt.Println(applied)
 	return nil
 }

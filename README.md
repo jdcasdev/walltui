@@ -33,6 +33,8 @@ built with `gdk-pixbuf2`, which the distribution packages ship.
 
 ```sh
 walltui              # open the picker
+walltui apply        # apply without the TUI: the stored wallpaper, or the first one
+walltui apply PATH  # apply a specific wallpaper
 walltui --version
 ```
 
@@ -57,15 +59,16 @@ walltui --version
 | `XDG_STATE_HOME` | `~/.local/state` | where walltui keeps its state |
 
 State lives in `~/.local/state/walltui/`: `current` holds the applied
-wallpaper, `apply.lock` serializes concurrent applies.
+wallpaper, `apply.lock` serializes concurrent applies, `swaybg.pid` tracks the
+background process walltui started.
 
 ## Notes
 
-- **walltui is independent of `wallpaper.sh`**, the bash script in
-  `~/Projects/bedrock-dots/scripts/wallpaper/`: different state directory,
-  different lock file. They both run `pkill -x swaybg` before starting a new
-  wallpaper, so use one or the other — otherwise they steal the wallpaper
-  from each other.
+- walltui only retires the `swaybg` it started itself (tracked in
+  `swaybg.pid`): it never kills another program's wallpaper.
+- To get the wallpaper you applied back on login, let walltui own the boot:
+  `swaybg_command /path/to/walltui apply` in sway's config. It applies the
+  stored wallpaper, or the first one in the library when there is none yet.
 - The wallpaper on screen is only retired once the replacement is confirmed
   running, so a failed apply leaves the current wallpaper alone.
 - No desktop notifications: the card shows the operation in flight, and

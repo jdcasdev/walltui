@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jdcasdev/walltui/internal/config"
 	"github.com/jdcasdev/walltui/internal/errs"
 )
 
@@ -17,14 +18,40 @@ func withArgs(t *testing.T, args ...string) error {
 	return Execute("test")
 }
 
-// TestExecuteRejectsArguments guards the CLI surface: the picker takes no
-// positional arguments, so a forgotten verb is a loud usage error instead of
-// a silently ignored word.
+// TestExecuteRejectsArguments guards the CLI surface: only the apply command
+// takes a positional argument, so a forgotten verb is a loud usage error
+// instead of a silently ignored word.
 func TestExecuteRejectsArguments(t *testing.T) {
-	for _, arg := range []string{"apply", "current", "/walls/a.png"} {
+	for _, arg := range []string{"current", "/walls/a.png", "aply"} {
 		if err := withArgs(t, arg); !errors.Is(err, errs.ErrUsage) {
 			t.Errorf("Execute(%q) = %v, want usage error", arg, err)
 		}
+	}
+}
+
+// TestExecuteApply checks the apply command reaches the apply seam, with and
+// without an explicit path.
+func TestExecuteApply(t *testing.T) {
+	var got string
+	old := applyWallpaper
+	t.Cleanup(func() { applyWallpaper = old })
+	applyWallpaper = func(cfg config.Config, path string) (string, error) {
+		got = path
+		return "/walls/a.png", nil
+	}
+
+	if err := withArgs(t, "apply"); err != nil {
+		t.Errorf("Execute(apply) = %v, want nil", err)
+	}
+	if got != "" {
+		t.Errorf("apply path = %q, want empty", got)
+	}
+
+	if err := withArgs(t, "apply", "/walls/a.png"); err != nil {
+		t.Errorf("Execute(apply path) = %v, want nil", err)
+	}
+	if got != "/walls/a.png" {
+		t.Errorf("apply path = %q, want /walls/a.png", got)
 	}
 }
 
