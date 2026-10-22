@@ -89,14 +89,35 @@ func startSwaybg(path, mode string) (*exec.Cmd, error) {
 
 	cmd := exec.Command(bin, "-i", path, "-m", mode)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Env = withoutWaylandSocket(os.Environ())
 	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err == nil {
 		cmd.Stdout, cmd.Stderr = devnull, devnull
 	}
 	if err := cmd.Start(); err != nil {
+		if devnull != nil {
+			devnull.Close()
+		}
 		return nil, fmt.Errorf("%w: cannot start swaybg: %v", errs.ErrIntegration, err)
 	}
 	return cmd, nil
+}
+
+// withoutWaylandSocket drops WAYLAND_SOCKET when WAYLAND_DISPLAY can replace
+// it. sway passes that fd to the background command it spawns and destroys
+// that client on every reload; a swaybg that uses it dies on the next reload.
+// Through WAYLAND_DISPLAY, swaybg survives reloads and walltui retires it.
+// Without a display name the socket stays: then it is the only way to connect.
+func withoutWaylandSocket(env []string) []string {
+	hasDisplay := slices.ContainsFunc(env, func(kv string) bool {
+		return strings.HasPrefix(kv, "WAYLAND_DISPLAY=")
+	})
+	if !hasDisplay {
+		return env
+	}
+	return slices.DeleteFunc(slices.Clone(env), func(kv string) bool {
+		return strings.HasPrefix(kv, "WAYLAND_SOCKET=")
+	})
 }
 
 // awaitAlive watches the child: nil while it keeps running, an error as soon

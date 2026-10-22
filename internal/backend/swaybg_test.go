@@ -198,6 +198,41 @@ func TestApplyRecordsWallpaperProcess(t *testing.T) {
 	}
 }
 
+// waylandLoggingSwaybg is a fake swaybg that logs the WAYLAND_SOCKET it sees.
+const waylandLoggingSwaybg = "printf '%s\\n' \"${WAYLAND_SOCKET-unset}\" >> \"$WALLTUI_TEST_LOG\"\necho $$ >> \"$WALLTUI_TEST_PIDS\"\nsleep 30\n"
+
+// TestApplyDropsWaylandSocket: sway's own background command inherits a
+// WAYLAND_SOCKET that sway closes on reload. The swaybg walltui starts must
+// connect through WAYLAND_DISPLAY instead, or the wallpaper dies on a reload.
+func TestApplyDropsWaylandSocket(t *testing.T) {
+	env := newEnv(t, waylandLoggingSwaybg)
+	t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+	t.Setenv("WAYLAND_SOCKET", "42")
+
+	if err := env.backend().Apply("/walls/a.png", "fill"); err != nil {
+		t.Fatalf("Apply() = %v", err)
+	}
+	if log := strings.TrimSpace(env.swaybgLog(t)); log != "unset" {
+		t.Errorf("swaybg saw WAYLAND_SOCKET=%q, want it unset", log)
+	}
+}
+
+// TestApplyKeepsWaylandSocketWithoutDisplay: with no WAYLAND_DISPLAY to fall
+// back to, the socket is the only way to reach the compositor, so it stays.
+func TestApplyKeepsWaylandSocketWithoutDisplay(t *testing.T) {
+	env := newEnv(t, waylandLoggingSwaybg)
+	t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+	os.Unsetenv("WAYLAND_DISPLAY") // cleanup restores the real value
+	t.Setenv("WAYLAND_SOCKET", "42")
+
+	if err := env.backend().Apply("/walls/a.png", "fill"); err != nil {
+		t.Fatalf("Apply() = %v", err)
+	}
+	if log := strings.TrimSpace(env.swaybgLog(t)); log != "42" {
+		t.Errorf("swaybg saw WAYLAND_SOCKET=%q, want 42", log)
+	}
+}
+
 func TestApplyCrash(t *testing.T) {
 	env := newEnv(t, "#!/bin/sh\nexit 1\n")
 

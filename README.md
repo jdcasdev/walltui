@@ -67,8 +67,11 @@ background process walltui started.
 - walltui only retires the `swaybg` it started itself (tracked in
   `swaybg.pid`): it never kills another program's wallpaper.
 - To get the wallpaper you applied back on login, let walltui own the boot:
-  `swaybg_command /path/to/walltui apply` in sway's config. It applies the
-  stored wallpaper, or the first one in the library when there is none yet.
+  `swaybg_command -` plus `exec /path/to/walltui apply` in sway's config.
+  The first disables sway's own background client, which also makes its
+  `output … background` directives inert; the second runs once, at startup
+  (a config reload does not re-run it). It applies the stored wallpaper, or
+  the first one in the library when there is none yet.
 - The wallpaper on screen is only retired once the replacement is confirmed
   running, so a failed apply leaves the current wallpaper alone.
 - No desktop notifications: the card shows the operation in flight, and
